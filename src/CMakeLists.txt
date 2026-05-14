@@ -5,6 +5,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(APERTURE_SRC
   main.cpp
+  ngon.cpp
   glad.c
 )
 

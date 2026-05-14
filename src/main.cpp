@@ -5,6 +5,8 @@
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
+#include "ngon.h"
+
 void gl_debug_callback(GLenum source, 
   GLenum type, 
   GLuint id,
@@ -19,9 +21,15 @@ void gl_debug_callback(GLenum source,
   std::println("OpenGL Message | {}", message);
 }
 
+GLuint shader_program;
 void window_size_callback(GLFWwindow* window, int w, int h)
 {
   glViewport(0, 0, w, h);
+  GLint viewport_loc = glGetUniformLocation(shader_program, "u_viewport");
+  glUniform2f(viewport_loc, w, h);
+
+  GLint position_loc = glGetUniformLocation(shader_program, "u_position");
+  glUniform2f(position_loc, w / 2.f, h / 2.f);
 }
 
 std::vector<float> gen_ngon_verts(size_t n)
@@ -56,6 +64,12 @@ std::vector<GLuint> gen_ngon_inds(size_t n)
   return inds;
 }
 
+void draw_fractal(GLuint vao, size_t n)
+{
+  glBindVertexArray(vao);
+
+}
+
 int main(void)
 {
   GLFWwindow* window;
@@ -64,7 +78,9 @@ int main(void)
     return -1;
   }
 
-  window = glfwCreateWindow(800, 600, "Aperture", nullptr, nullptr);
+  int windowW = 800;
+  int windowH = 600;
+  window = glfwCreateWindow(windowW, windowH, "Aperture", nullptr, nullptr);
   if (!window) {
     glfwTerminate();
     return -1;
@@ -81,7 +97,7 @@ int main(void)
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(gl_debug_callback, nullptr);
 
-  std::println("{}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+  std::println("OpenGL Version {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
   // Generate n-gons' vertices and indices
   constexpr size_t num_ngons = 5;
@@ -147,27 +163,31 @@ int main(void)
   glShaderSource(frag_shader, 1, &frag_shader_str, nullptr);
   glCompileShader(frag_shader);//check_shader(frag_shader);
 
-  GLuint shader_program = glCreateProgram();
+  shader_program = glCreateProgram();
   glAttachShader(shader_program, vert_shader);
   glAttachShader(shader_program, frag_shader);
   check_program(shader_program);
   glUseProgram(shader_program);
+  window_size_callback(window, windowW, windowH);
 
   glDeleteShader(vert_shader);
   glDeleteShader(frag_shader);
 
-  auto draw_ngon = [&](size_t i) {
-    glBindVertexArray(ngon_vaos[i]);
-    glDrawElements(GL_LINE_LOOP, ngons_indices[i].size(), GL_UNSIGNED_INT, nullptr);
-  };
+  // Shader uniforms
+  GLint radius_loc = glGetUniformLocation(shader_program, "u_radius");
+  glUniform1f(radius_loc, 30.f);
 
   while (!glfwWindowShouldClose(window)) {
     //glClearColor(0.f, 1.f, 0.5f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    for (int i = 0; i < 4; ++i) {
-      draw_ngon(i);
-    }
+
+    auto draw_ngon = [&](size_t n) {
+      glBindVertexArray(ngon_vaos[n - 3]);
+      glDrawElements(GL_LINE_LOOP, ngons_indices[n - 3].size(), GL_UNSIGNED_INT, nullptr);
+    };
+
+    draw_ngon(5);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
