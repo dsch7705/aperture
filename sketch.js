@@ -22,6 +22,8 @@ let h = 0;
 class Settings {
   constructor() {
     this.speed = 2.0;
+    this.brightness = 0.3;
+    this.show = true;
   }
 }
 
@@ -42,8 +44,9 @@ function setup() {
 
   settings = new Settings;
 
-  var gui = new dat.GUI({name: 'Settings'});
-  gui.add(settings, "speed", 0.1, 100, 0.1);
+  gui = new dat.GUI({name: 'Settings'});
+  gui.add(settings, "speed", 0.1, 100.0, 0.1);
+  gui.add(settings, "brightness", 0.0, 1.0, 0.01)
 }
 
 function nGonFractal(x, y, sides, radius, depth) {
@@ -63,11 +66,23 @@ function nGonFractal(x, y, sides, radius, depth) {
   endShape(CLOSE);
 }
 
+function keyPressed() {
+  if (key == "`") {
+    if (settings.show) {
+      gui.hide();
+      settings.show = false;
+    } else {
+      gui.show();
+      settings.show = true;
+    }
+  }
+}
+
 function draw() {
   background(0);
   translate(width / 2, height / 2);
   noFill();
-  strokeWeight(0.3);
+  strokeWeight(settings.brightness);
 
   h += deltaTime * 0.0007 * settings.speed;
   h = h % 360;
