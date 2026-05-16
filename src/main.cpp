@@ -5,6 +5,10 @@
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
+#include "imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
+
 #include "ngon.h"
 
 void gl_debug_callback(GLenum source, 
@@ -22,52 +26,20 @@ void gl_debug_callback(GLenum source,
 }
 
 GLuint shader_program;
+
+int windowW = 800;
+int windowH = 600;
 void window_size_callback(GLFWwindow* window, int w, int h)
 {
+  windowW = w;
+  windowH = h;
+
   glViewport(0, 0, w, h);
   GLint viewport_loc = glGetUniformLocation(shader_program, "u_viewport");
   glUniform2f(viewport_loc, w, h);
 
   GLint position_loc = glGetUniformLocation(shader_program, "u_position");
   glUniform2f(position_loc, w / 2.f, h / 2.f);
-}
-
-std::vector<float> gen_ngon_verts(size_t n)
-{
-  if (n < 3) {
-    throw "n must be no less than 3";
-  }
-
-  constexpr float two_pi = 2 * std::numbers::pi;
-
-  std::vector<float> verts;
-  for (size_t i = 0; i < n; ++i) {
-    float theta = i * (two_pi / n);
-    verts.push_back(std::cos(theta));
-    verts.push_back(std::sin(theta));
-  }
-
-  return verts;
-}
-
-std::vector<GLuint> gen_ngon_inds(size_t n)
-{
-  if (n < 3) {
-    throw "n must be no less than 3";
-  }
-
-  std::vector<GLuint> inds;
-  for (size_t i = 0; i < n; ++i) {
-    inds.push_back(i);
-  }
-
-  return inds;
-}
-
-void draw_fractal(GLuint vao, size_t n)
-{
-  glBindVertexArray(vao);
-
 }
 
 int main(void)
@@ -78,8 +50,6 @@ int main(void)
     return -1;
   }
 
-  int windowW = 800;
-  int windowH = 600;
   window = glfwCreateWindow(windowW, windowH, "Aperture", nullptr, nullptr);
   if (!window) {
     glfwTerminate();
@@ -98,38 +68,6 @@ int main(void)
   glDebugMessageCallback(gl_debug_callback, nullptr);
 
   std::println("OpenGL Version {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-
-  // Generate n-gons' vertices and indices
-  constexpr size_t num_ngons = 5;
-  std::vector<std::vector<float>> ngons_vertices;
-  std::vector<std::vector<GLuint>> ngons_indices;
-  for (int i = 3; i < num_ngons + 3; ++i) {
-    ngons_vertices.push_back(gen_ngon_verts(i));
-    ngons_indices.push_back(gen_ngon_inds(i));
-  }
-
-  // Generate GL objects
-  std::vector<GLuint> ngon_vaos;
-  for (size_t i = 0; i < num_ngons; ++i) {
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    ngon_vaos.push_back(vao);
-
-    GLuint vbo;
-    const auto& verts = ngons_vertices[i];
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-
-    GLuint ebo;
-    const auto& inds = ngons_indices[i];
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, inds.size() * sizeof(GLuint), inds.data(), GL_STATIC_DRAW);
-  }
 
   // Shaders
   auto check_program = [](GLuint program) {
@@ -173,25 +111,46 @@ int main(void)
   glDeleteShader(vert_shader);
   glDeleteShader(frag_shader);
 
-  // Shader uniforms
-  GLint radius_loc = glGetUniformLocation(shader_program, "u_radius");
-  glUniform1f(radius_loc, 30.f);
+  NgonFractal fractal(5.0f, 21, 2, 30.f);
+  fractal.shader_program = shader_program;
+
+  // ImGui
+  ImGui::CreateContext();
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init();
+  ImGuiIO& io = ImGui::GetIO();
 
   while (!glfwWindowShouldClose(window)) {
     //glClearColor(0.f, 1.f, 0.5f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    fractal.draw(windowW / 2.f, windowH / 2.f);
 
-    auto draw_ngon = [&](size_t n) {
-      glBindVertexArray(ngon_vaos[n - 3]);
-      glDrawElements(GL_LINE_LOOP, ngons_indices[n - 3].size(), GL_UNSIGNED_INT, nullptr);
-    };
+    ImGui_ImplGlfw_NewFrame();
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui::NewFrame();
 
-    draw_ngon(5);
+    ImGui::Begin("Test");
+
+    ImGui::DragFloat("vertices", &fractal.current_vertices, .1f, 3.f, fractal.max_vertices);
+
+    unsigned int depth_min = 1;
+    unsigned int depth_max = 6;
+    ImGui::DragScalar("depth", ImGuiDataType_U32, &fractal.depth, 1.f, &depth_min, &depth_max);
+
+    ImGui::DragFloat("radius", &fractal.radius, 1.f, 10.f, 20000.f);
+
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
+
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
 
   glfwTerminate();
   return 0;

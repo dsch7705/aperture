@@ -14,14 +14,24 @@ let sidesRange = maxSides - minSides;
 
 let radiusTheta;
 let sidesTheta;
+let thetaTheta;
 let theta = 0;
 
 let h = 0;
 
-let speed = 2;
+class Settings {
+  constructor() {
+    this.speed = 2.0;
+  }
+}
+
+let speed = 0.2;
 
 let defaultW = 600;
 let defaultH = defaultW;
+
+let settings;
+let gui;
 
 function setup() {
   createCanvas(displayWidth, displayHeight);
@@ -29,6 +39,11 @@ function setup() {
 
   radiusTheta = -PI / 5;
   sidesTheta = PI / 7;
+
+  settings = new Settings;
+
+  var gui = new dat.GUI({name: 'Settings'});
+  gui.add(settings, "speed", 0.1, 100, 0.1);
 }
 
 function nGonFractal(x, y, sides, radius, depth) {
@@ -48,33 +63,20 @@ function nGonFractal(x, y, sides, radius, depth) {
   endShape(CLOSE);
 }
 
-//function keyPressed() {
-//  if (key == "s") {
-//    saveGif("ngon", 15);
-//  } else if (key === 'f') {
-//    let fs = fullscreen();
-//    if (fs) {
-//      resizeCanvas(defaultW, defaultH);
-//    } else {
-//      resizeCanvas(displayWidth, displayHeight);
-//    }
-//    fullscreen(!fs);
-//  }
-//}
-
 function draw() {
   background(0);
   translate(width / 2, height / 2);
   noFill();
   strokeWeight(0.3);
 
-  h += deltaTime * 0.0007 * speed;
+  h += deltaTime * 0.0007 * settings.speed;
   h = h % 360;
   stroke(h, 100, 50);
 
-  radiusTheta += deltaTime * 0.00003 * speed;
-  sidesTheta += deltaTime * 0.000015 * speed;
-  theta = sin(millis() * 0.0000025 * speed) * 3 * PI;
+  radiusTheta += deltaTime * 0.00003 * settings.speed;
+  sidesTheta += deltaTime * 0.000015 * settings.speed;
+  thetaTheta += deltaTime * 0.0000025 * settings.speed;
+  theta = sin(thetaTheta) * 3 * PI;
 
   rotate(theta);
 
